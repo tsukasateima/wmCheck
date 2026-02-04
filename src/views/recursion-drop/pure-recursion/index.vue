@@ -376,6 +376,7 @@ const findAllTxtFilesFromAddress = async (
         ]);
       }
     } else if (serverRadio.value === "Reset") {
+      // 重置版
       const publicResetTables = await getNestedDirectoryHandle(
         address.value,
         "Reset/PublicResetTables"
@@ -430,6 +431,7 @@ const findTxtFiles = async (
     }
   }
 };
+
 const springCheckLoading = ref(false);
 const defaultProps = {
   children: "children",

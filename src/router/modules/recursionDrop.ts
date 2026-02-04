@@ -26,6 +26,15 @@ export default {
       meta: {
         title: $t("menus.fakeBoxCheck")
       }
+    },
+    {
+      path: "/recursion-drop/new-pure-recursion-drop",
+      name: "newPureRecurionDrop",
+      component: () =>
+        import("@/views/recursion-drop/new-pure-recursion/index.vue"),
+      meta: {
+        title: $t("menus.pureRecurionDrop")
+      }
     }
   ]
 } satisfies RouteConfigsTable;
