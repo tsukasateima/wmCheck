@@ -1,15 +1,13 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import { useRouter } from "vue-router";
-import { ref, Ref, onMounted, onBeforeUnmount, computed, reactive } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
-import { getNestedDirectoryHandle } from "@/utils/RecursionDrop";
-import { persistHandle, restoreHandle } from "@/utils/RecursionDrop/storage";
+import { getNestedDirectoryHandle } from "@/utils/RecursionDrop/new-recursion-drop";
 import {
-  basePublicTables,
-  baseServerTables,
-  resetPublicTables,
-  resetServerTables
-} from "./txtPath";
+  pickAndPersistDirectory,
+  restoreDirectoryHandle
+} from "@/utils/RecursionDrop/storage";
+import { baseTables, resetTables } from "./txtPath";
 
 const versionRadio = ref("Main");
 const serverRadio = ref("Base");
@@ -17,86 +15,44 @@ const serverRadio = ref("Base");
 const mainDirectoryHandle = ref<FileSystemDirectoryHandle | null>(null);
 const tyDirectoryHandle = ref<FileSystemDirectoryHandle | null>(null);
 // txt数据
-const basePublicTablesPath = ref(basePublicTables);
-const baseServerTablesPath = ref(baseServerTables);
-const resetPublicTablesPath = ref(resetPublicTables);
-const resetServerTablesPath = ref(resetServerTables);
-
-const allTables = reactive([
-  basePublicTablesPath,
-  baseServerTablesPath,
-  resetPublicTablesPath,
-  resetServerTablesPath
-]);
-const txtFiles = ref<File[]>();
-
+const baseTablesPath = ref(baseTables);
+const resetTablesPath = ref(resetTables);
+const allTables = reactive([baseTablesPath, resetTablesPath]);
 // fakeBox物品id
-const fakeBoxIdsString = ref<string>("");
+const recursionDropIdsString = ref<string>("");
 
 onMounted(async () => {
   // 恢复句柄（页面刷新后）
-  const savedMainHandle = (await restoreHandle<FileSystemDirectoryHandle>(
-    "mainDirectoryHandle"
-  )) as any;
-  if (
-    savedMainHandle &&
-    (await savedMainHandle.queryPermission({ mode: "read" })) === "granted"
-  ) {
-    mainDirectoryHandle.value = savedMainHandle;
-  } else {
-    console.warn("句柄恢复失败或无权限");
-  }
+  await restoreDirectoryHandle(mainDirectoryHandle, "mainDirectoryHandle", {
+    warnMessage: "Main 句柄恢复失败或无权限"
+  });
 
-  const savedTyHandle = (await restoreHandle<FileSystemDirectoryHandle>(
-    "tyDirectoryHandle"
-  )) as any;
-  if (
-    savedTyHandle &&
-    (await savedTyHandle.queryPermission({ mode: "read" })) === "granted"
-  ) {
-    tyDirectoryHandle.value = savedTyHandle;
-  } else {
-    console.warn("句柄ty恢复失败或无权限");
-  }
+  await restoreDirectoryHandle(tyDirectoryHandle, "tyDirectoryHandle", {
+    warnMessage: "Ty 句柄恢复失败或无权限"
+  });
 
   await findAllTxtFiles();
 });
+
 // 一键检查
 const quickCheckClick = async () => {};
 
 // 选择文件夹触发方法
 const selectMainFolder = async () => {
-  try {
-    // @ts-ignore
-    // 使用 File System Access API 打开文件夹选择对话框
-    const directoryHandle = await window.showDirectoryPicker();
-    mainDirectoryHandle.value = directoryHandle;
-
-    await persistHandle("mainDirectoryHandle", mainDirectoryHandle.value);
-    ElMessage.success("Main 文件夹选择成功，已持久化");
-  } catch (error) {
-    ElMessage({
-      message: "文件选择或读取失败,请检查文件路径是否正确",
-      type: "error"
-    });
-    console.error("文件选择或读取失败", error);
-  }
+  await pickAndPersistDirectory(
+    mainDirectoryHandle,
+    "mainRecursionDirectoryHandle",
+    { successMessage: "Main 文件夹选择成功,已持久化" }
+  );
 };
 const selectTyFolder = async () => {
-  try {
-    // @ts-ignore
-    const directoryHandle = await window.showDirectoryPicker();
-    tyDirectoryHandle.value = directoryHandle;
-
-    await persistHandle("tyDirectoryHandle", tyDirectoryHandle.value);
-    ElMessage.success("ty文件夹选择成功，已持久化");
-  } catch (error) {
-    ElMessage({
-      message: "文件选择或读取失败,请检查文件路径是否正确",
-      type: "error"
-    });
-    console.error("文件选择或读取失败", error);
-  }
+  await pickAndPersistDirectory(
+    tyDirectoryHandle,
+    "tyRecursionDirectoryHandle",
+    {
+      successMessage: "Ty 文件夹选择成功，已持久化"
+    }
+  );
 };
 
 // 在三个目录下查找目标 txt 文件
@@ -170,16 +126,16 @@ const router = useRouter();
         <div class="version-radio-container info-container">
           <div class="title">版本选择</div>
           <el-radio-group v-model="versionRadio">
-            <el-radio value="Main" size="large">Main</el-radio>
-            <el-radio value="TY" size="large">TY</el-radio>
+            <el-radio size="large" value="Main">Main</el-radio>
+            <el-radio size="large" value="TY">TY</el-radio>
           </el-radio-group>
         </div>
         <!-- 服务器选择 -->
         <div class="server-radio-container info-container">
           <div class="title">服务器选择</div>
           <el-radio-group v-model="serverRadio">
-            <el-radio value="Base" size="large">基础版</el-radio>
-            <el-radio value="Reset" size="large">重置版</el-radio>
+            <el-radio size="large" value="Base">基础版</el-radio>
+            <el-radio size="large" value="Reset">重置版</el-radio>
           </el-radio-group>
         </div>
         <!-- Main路径选择 -->
@@ -206,7 +162,7 @@ const router = useRouter();
 
           <ul v-if="serverRadio === 'Base'" class="txt-files-list">
             <li
-              v-for="(file, index) in basePublicTablesPath"
+              v-for="(file, index) in baseTablesPath"
               :key="index"
               class="txt-files-list-item"
             >
@@ -222,7 +178,7 @@ const router = useRouter();
           </ul>
           <ul v-if="serverRadio === 'Reset'" class="txt-files-list">
             <li
-              v-for="(file, index) in resetPublicTablesPath"
+              v-for="(file, index) in resetTablesPath"
               :key="index"
               class="txt-files-list-item"
             >
@@ -239,13 +195,13 @@ const router = useRouter();
         </div>
         <!-- 输入随机掉落物id container -->
         <div class="recursionDrop-input-container info-container">
-          <p>请输入FakeBox物品id，每行一个id</p>
+          <p>请输入RecursionDrop物品id，每行一个id</p>
           <el-input
-            v-model="fakeBoxIdsString"
-            style="width: 240px"
+            v-model="recursionDropIdsString"
             :autosize="{ minRows: 2, maxRows: 4 }"
-            type="textarea"
             placeholder="Please input"
+            style="width: 240px"
+            type="textarea"
           />
         </div>
       </div>
@@ -256,17 +212,25 @@ const router = useRouter();
       <div class="father-common-check-container">
         <div class="quick-check-container">
           <el-button
-            type="warning"
             style="width: 40%; margin-bottom: 30px"
+            type="warning"
             @click="quickCheckClick"
             >一键检查</el-button
           >
         </div>
       </div>
     </div>
+
+    <!--    <el-button-->
+    <!--      :loading="checkCommonCellByIdLoading"-->
+    <!--      style="width: 40%"-->
+    <!--      type="primary"-->
+    <!--      @click="checkCommonCellByIdClick"-->
+    <!--      >批量基础检查</el-button-->
+    <!--    >-->
   </div>
 </template>
 
 <style lang="scss" scoped>
-@import "./newPureRecursionStyle.scss";
+@use "./newPureRecursionStyle.scss";
 </style>
