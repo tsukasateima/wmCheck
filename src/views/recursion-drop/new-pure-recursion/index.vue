@@ -1,13 +1,20 @@
 <script lang="ts" setup>
 import { useRouter } from "vue-router";
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, Ref, ref } from "vue";
 import { ElMessage } from "element-plus";
-import { getNestedDirectoryHandle } from "@/utils/RecursionDrop/new-recursion-drop";
+import { getNestedDirectoryHandle } from "@/utils/common/index";
 import {
   pickAndPersistDirectory,
   restoreDirectoryHandle
 } from "@/utils/RecursionDrop/storage";
 import { baseTables, resetTables } from "./txtPath";
+import { checkCommonCellById } from "@/utils/RecursionDrop";
+import {
+  DuplicateIdError,
+  FatherCommonCellErr,
+  NotFindIdError,
+  NotFindNotifyErr
+} from "@/utils/RecursionDrop/types";
 
 const versionRadio = ref("Main");
 const serverRadio = ref("Base");
@@ -18,8 +25,6 @@ const tyDirectoryHandle = ref<FileSystemDirectoryHandle | null>(null);
 const baseTablesPath = ref(baseTables);
 const resetTablesPath = ref(resetTables);
 const allTables = reactive([baseTablesPath, resetTablesPath]);
-// fakeBox物品id
-const recursionDropIdsString = ref<string>("");
 
 onMounted(async () => {
   // 恢复句柄（页面刷新后）
@@ -33,9 +38,6 @@ onMounted(async () => {
 
   await findAllTxtFiles();
 });
-
-// 一键检查
-const quickCheckClick = async () => {};
 
 // 选择文件夹触发方法
 const selectMainFolder = async () => {
@@ -55,7 +57,7 @@ const selectTyFolder = async () => {
   );
 };
 
-// 在三个目录下查找目标 txt 文件
+// 在目录下查找目标 txt 文件
 const findAllTxtFiles = async () => {
   try {
     // 清空txt数据
@@ -102,7 +104,7 @@ const findAllTxtFiles = async () => {
     });
   }
 };
-// 参数是项目地址
+//清空所有表格内容
 const clearAllTables = () => {
   for (const files of allTables) {
     for (const file of files.value) {
@@ -111,8 +113,112 @@ const clearAllTables = () => {
   }
 };
 
+// 一键检查
+const quickCheckClick = async () => {};
+//基础检查相关变量
+const recursionDropIdsString = ref<string>("");
+const recursionDropIdsStringArray: Ref<string[]> = ref([]);
+const commonCheckCollapseNames = ref<string[]>([]);
+const checkCommonCellByIdLoading = ref(false);
+const correctItems = ref([]); // 用于存储唯一性通过的物品
+const notFindIdsItems = ref([]); // 用于存储未找到的id
+const duplicateItems = ref([]); // 用于存储重复的id
+const notFindNotifyItems = ref([]); // 用于存储找不到公告的物品
+const fatherCommonCellErrItems = ref([]); // 用于存储父基础信息出错的物品
+const correctItemTags = ref([]); // 存储通过的items 用于tag
+/**
+ *检查基础信息
+ */
+const checkCommonCellByIdClick = async () => {
+  checkCommonCellByIdLoading.value = true;
+  // 置空旧数据
+  correctItems.value = [];
+  correctItemTags.value = [];
+  notFindIdsItems.value = [];
+  duplicateItems.value = [];
+  notFindNotifyItems.value = [];
+  commonCheckCollapseNames.value = [] as string[];
+  fatherCommonCellErrItems.value = [];
+  recursionDropIdsStringArray.value = [];
+
+  const tempRecursionDropIdsStringArray = recursionDropIdsString.value
+    .split("\n")
+    .map(id => id.trim())
+    .filter(line => line !== ""); // 去除空行
+  for (const line of tempRecursionDropIdsStringArray) {
+    const num = Number(line);
+    if (!Number.isInteger(num) || num <= 0) {
+      checkCommonCellByIdLoading.value = false;
+      ElMessage.error("输入的ID必须为正整数！请检查输入");
+      return null; // ❌ 非正整数，立即返回
+    }
+  }
+  recursionDropIdsStringArray.value = tempRecursionDropIdsStringArray;
+
+  let recursionDropTxt = null;
+  let dropNotifyTxt = null;
+  if (serverRadio.value === "Base") {
+    recursionDropTxt = baseTablesPath.value.find(
+      tables => tables.tableName === "RecursionDrop.txt"
+    );
+    dropNotifyTxt = baseTablesPath.value.find(
+      tables => tables.tableName === "DropNotify.txt"
+    );
+  } else if (serverRadio.value === "Reset") {
+    recursionDropTxt = resetTablesPath.value.find(
+      tables => tables.tableName === "RecursionDrop.txt"
+    );
+    dropNotifyTxt = resetTablesPath.value.find(
+      tables => tables.tableName === "DropNotify.txt"
+    );
+  }
+
+  try {
+    for await (const id of recursionDropIdsStringArray.value) {
+      try {
+        const item = await checkCommonCellById(
+          recursionDropTxt,
+          dropNotifyTxt,
+          Number(id)
+        );
+        correctItems.value.push(item);
+        correctItemTags.value.push(item);
+        commonCheckCollapseNames.value.push("correct");
+      } catch (err) {
+        if (err instanceof NotFindIdError) {
+          notFindIdsItems.value.push({ Id: err.targetId });
+          commonCheckCollapseNames.value.push("notFindErr");
+        } else if (err instanceof DuplicateIdError) {
+          duplicateItems.value.push(...err.records);
+          commonCheckCollapseNames.value.push("duplicateErr");
+        } else if (err instanceof NotFindNotifyErr) {
+          notFindNotifyItems.value.push(err.dropRecord);
+          commonCheckCollapseNames.value.push("notifyErr");
+        } else if (err instanceof FatherCommonCellErr) {
+          err.dropRecord.ErrCells = err.errCells.join(",");
+          fatherCommonCellErrItems.value.push(err.dropRecord);
+          commonCheckCollapseNames.value.push("commonCellErr");
+        }
+      }
+    }
+    checkCommonCellByIdLoading.value = false;
+    const shouldCheckCnt = recursionDropIdsStringArray.value.length;
+    const rightCnt = correctItems.value.length;
+    if (shouldCheckCnt === rightCnt) {
+      ElMessage.success("全部递归包本包基础信息均正确！");
+    } else {
+      ElMessage.error("存在递归包基础信息错误，请查看展开的表格");
+    }
+  } catch (error) {
+    ElMessage({
+      message: "存在其他错误，联系管理员",
+      type: "error"
+    });
+  }
+};
+
 defineOptions({
-  name: "RecursionDrop"
+  name: "NewRecursionDrop"
 });
 
 const router = useRouter();
@@ -221,13 +327,102 @@ const router = useRouter();
       </div>
     </div>
 
-    <!--    <el-button-->
-    <!--      :loading="checkCommonCellByIdLoading"-->
-    <!--      style="width: 40%"-->
-    <!--      type="primary"-->
-    <!--      @click="checkCommonCellByIdClick"-->
-    <!--      >批量基础检查</el-button-->
-    <!--    >-->
+    <el-button
+      :loading="checkCommonCellByIdLoading"
+      style="width: 40%"
+      type="primary"
+      @click="checkCommonCellByIdClick"
+      >批量基础检查</el-button
+    >
+
+    <div class="father-common-check-collapse">
+      <el-collapse v-model="commonCheckCollapseNames">
+        <el-collapse-item name="correct">
+          <template #title>
+            <div class="unique-items-container" style="color: green">
+              基础检查通过随机掉落包物品信息
+            </div>
+          </template>
+          <el-table
+            v-loading="checkCommonCellByIdLoading"
+            :data="correctItems"
+            border
+          >
+            <el-table-column label="Id" prop="Id" />
+            <el-table-column label="描述" prop="Desc" />
+            <el-table-column label="种类 1：常规概率 2:权重包" prop="Type" />
+          </el-table>
+        </el-collapse-item>
+        <el-collapse-item name="notFindErr">
+          <template #title>
+            <div class="unique-items-container" style="color: red">
+              未查询到的随机掉落包Id
+            </div>
+          </template>
+          <el-table
+            v-loading="checkCommonCellByIdLoading"
+            :data="notFindIdsItems"
+            border
+          >
+            <el-table-column label="Id" prop="Id" />
+          </el-table>
+        </el-collapse-item>
+        <el-collapse-item name="duplicateErr">
+          <template #title>
+            <div class="unique-items-container" style="color: red">
+              ID存在重复，查看重复随机掉落物信息
+            </div>
+          </template>
+          <el-table
+            v-loading="checkCommonCellByIdLoading"
+            :data="duplicateItems"
+            border
+          >
+            <el-table-column label="Id" prop="Id" />
+            <el-table-column label="描述" prop="Desc" />
+            <el-table-column label="种类 1：常规概率 2:权重包" prop="Type" />
+          </el-table>
+        </el-collapse-item>
+
+        <el-collapse-item name="notifyErr">
+          <template #title>
+            <div class="unique-items-container" style="color: red">
+              存在公告，但是DropNotify找不到该配置Id
+            </div>
+          </template>
+          <el-table
+            v-loading="checkCommonCellByIdLoading"
+            :data="notFindNotifyItems"
+            border
+          >
+            <el-table-column label="Id" prop="Id" />
+            <el-table-column label="描述" prop="Desc" />
+            <el-table-column label="公告ID" prop="NotifyId" />
+          </el-table>
+        </el-collapse-item>
+        <el-collapse-item name="commonCellErr">
+          <template #title>
+            <div class="unique-items-container" style="color: red">
+              单元格存在错误，错误递归包信息
+            </div>
+          </template>
+          <el-table
+            v-loading="checkCommonCellByIdLoading"
+            :data="fatherCommonCellErrItems"
+            border
+          >
+            <el-table-column label="Id" prop="Id" />
+            <el-table-column label="描述" prop="Desc" />
+            <el-table-column label="种类 1：常规概率 2:权重包" prop="Type" />
+            <el-table-column
+              label="物品绑定概率(0:非绑定，1:绑定，0-1之间为概率绑定)"
+              prop="BindRate"
+            />
+            <el-table-column label="错误单元格" prop="ErrCells" />
+          </el-table>
+        </el-collapse-item>
+      </el-collapse>
+    </div>
   </div>
 </template>
 
