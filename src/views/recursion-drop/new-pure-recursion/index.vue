@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { useRouter } from "vue-router";
-import { onMounted, reactive, Ref, ref } from "vue";
+import { computed, onMounted, reactive, Ref, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { getNestedDirectoryHandle } from "@/utils/common/index";
 import {
@@ -8,8 +8,13 @@ import {
   restoreDirectoryHandle
 } from "@/utils/RecursionDrop/storage";
 import { baseTables, resetTables } from "./txtPath";
-import { checkCommonCellById } from "@/utils/RecursionDrop";
 import {
+  checkCommonCellById,
+  offspringCheck
+} from "@/utils/RecursionDrop/new-recursion-drop";
+import {
+  DropRecord,
+  DropTreeNode,
   DuplicateIdError,
   FatherCommonCellErr,
   NotFindIdError,
@@ -63,8 +68,23 @@ const findAllTxtFiles = async () => {
     // 清空txt数据
     clearAllTables();
     if (versionRadio.value === "Main") {
-      for (const tables of allTables) {
-        for (const table of tables.value) {
+      if (serverRadio.value === "Base") {
+        for (const table of baseTablesPath.value) {
+          const folder = await getNestedDirectoryHandle(
+            mainDirectoryHandle.value,
+            table.path
+          );
+          // @ts-ignore
+          for await (const entry of folder.values()) {
+            if (entry.kind === "file") {
+              if (table.tableName === entry.name) {
+                table.content = await entry.getFile();
+              }
+            }
+          }
+        }
+      } else if (serverRadio.value === "Reset") {
+        for (const table of resetTablesPath.value) {
           const folder = await getNestedDirectoryHandle(
             mainDirectoryHandle.value,
             table.path
@@ -80,8 +100,8 @@ const findAllTxtFiles = async () => {
         }
       }
     } else if (versionRadio.value === "Ty") {
-      for (const tables of allTables) {
-        for (const table of tables.value) {
+      if (serverRadio.value === "Base") {
+        for (const table of baseTablesPath.value) {
           const folder = await getNestedDirectoryHandle(
             tyDirectoryHandle.value,
             table.path
@@ -90,7 +110,22 @@ const findAllTxtFiles = async () => {
           for await (const entry of folder.values()) {
             if (entry.kind === "file") {
               if (table.tableName === entry.name) {
-                table.content = entry.getFile();
+                table.content = await entry.getFile();
+              }
+            }
+          }
+        }
+      } else if (serverRadio.value === "Reset") {
+        for (const table of resetTablesPath.value) {
+          const folder = await getNestedDirectoryHandle(
+            tyDirectoryHandle.value,
+            table.path
+          );
+          // @ts-ignore
+          for await (const entry of folder.values()) {
+            if (entry.kind === "file") {
+              if (table.tableName === entry.name) {
+                table.content = await entry.getFile();
               }
             }
           }
@@ -114,9 +149,12 @@ const clearAllTables = () => {
 };
 
 // 一键检查
-const quickCheckClick = async () => {};
+const quickCheckClick = async () => {
+  await checkCommonCellByIdClick();
+  await offspringCheckClick();
+};
 //基础检查相关变量
-const recursionDropIdsString = ref<string>("");
+const recursionDropIdsString = ref<string>("200");
 const recursionDropIdsStringArray: Ref<string[]> = ref([]);
 const commonCheckCollapseNames = ref<string[]>([]);
 const checkCommonCellByIdLoading = ref(false);
@@ -160,17 +198,17 @@ const checkCommonCellByIdClick = async () => {
   if (serverRadio.value === "Base") {
     recursionDropTxt = baseTablesPath.value.find(
       tables => tables.tableName === "RecursionDrop.txt"
-    );
+    ).content;
     dropNotifyTxt = baseTablesPath.value.find(
       tables => tables.tableName === "DropNotify.txt"
-    );
+    ).content;
   } else if (serverRadio.value === "Reset") {
     recursionDropTxt = resetTablesPath.value.find(
       tables => tables.tableName === "RecursionDrop.txt"
-    );
+    ).content;
     dropNotifyTxt = resetTablesPath.value.find(
       tables => tables.tableName === "DropNotify.txt"
-    );
+    ).content;
   }
 
   try {
@@ -215,6 +253,123 @@ const checkCommonCellByIdClick = async () => {
       type: "error"
     });
   }
+};
+const springCheckLoading = ref(false);
+//处理标签关闭事件
+const handleTagClose = (item: DropRecord) => {
+  correctItemTags.value.splice(correctItemTags.value.indexOf(item), 1);
+};
+
+// 处理递归包检查点击事件
+const offspringCheckClick = async () => {
+  let recursionDropTxt = null;
+  let commonItemTxt = null;
+
+  // 用于收集所有 CommonItem.txt 的内容
+  // 用于收集所有 CommonItem.txt 的内容
+  let commonItemContents = [];
+
+  for (const tableG of allTables) {
+    for (const tableItem of tableG.value) {
+      if (tableItem.tableName === "RecursionDrop.txt") {
+        recursionDropTxt = tableItem.content;
+      } else if (tableItem.tableName === "CommonItem.txt") {
+        if (tableItem.content instanceof File) {
+          // 读取 File 内容并解码成gbk 编码
+          const arrayBuffer = await tableItem.content.arrayBuffer();
+
+          // 使用 TextDecoder 来将 GBK 编码转换为 UTF-8 编码
+          const decoder = new TextDecoder("gb18030"); // 或使用其他适当的编码如 "gb2312"
+          const text = decoder.decode(arrayBuffer);
+          commonItemContents.push(text);
+        }
+      }
+    }
+  }
+
+  // 拼接所有 CommonItem.txt 的内容
+  if (commonItemContents.length > 0) {
+    // 拼接内容，用换行符分隔（可以根据需要调整分隔符）
+    const mergedContent = commonItemContents.join("\n");
+
+    // 创建新的 File 对象  需要是gbk编码
+    const mergedFile = new File([mergedContent], "CommonItem.txt", {
+      type: "text/plain;"
+    });
+    commonItemTxt = mergedFile;
+  }
+  offspringPackLogList.value = [];
+  for (const item of correctItemTags.value) {
+    const root = await offspringCheck(item, recursionDropTxt, commonItemTxt);
+    offspringPackLogList.value.push(root);
+  }
+  springCheckLoading.value = false;
+};
+
+// 递归包错误日志
+const offspringPackLogList = ref([]);
+
+// 将递归包日志转换为树形结构
+function convertToTreeData(nodes: DropTreeNode[]): any[] {
+  return nodes.map(node => {
+    let label = "Id：";
+    if (node.type === "node") {
+      label +=
+        node.recursionDrop.Id +
+        " --- " +
+        node.recursionDrop.Desc +
+        " --- 随机" +
+        node.recursionDrop.RandTimes +
+        "次";
+
+      label += " --- 概率 " + node.dropChild.ItemDropRate; // 需要概率标蓝
+      if (node.recursionDrop.Type == "1") {
+        label += " --- 常规概率（后面的概率配置上限为10）";
+      } else if (node.recursionDrop.Type == "2") {
+        label += " --- 权重概率（后面的概率均需为大于1的整数）";
+      }
+
+      return {
+        label: label,
+        children: convertToTreeData(node.children),
+        hasErr: node.hasErr
+      };
+    }
+
+    if (node.type === "leaf") {
+      label += `${node.commonItem.Id} --- ${node.commonItem.Name} --- 概率${node.dropChild.ItemDropRate}`;
+      if (node.dropChild.ItemDropRate == 0) {
+        label += " --- 是珍贵掉落";
+      } else {
+        label += " --- 不是珍贵掉落";
+      }
+      return {
+        label: label,
+        hasErr: node.hasErr,
+        children: []
+      };
+    }
+
+    return {
+      label: node.msg,
+      hasErr: true,
+      children: []
+    };
+  });
+}
+
+// 计算属性，将掉落包列表分组
+const treeGroups = computed(() => {
+  return offspringPackLogList.value.map((root, index) => ({
+    title: `掉落包 ${index + 1}（ID：${root.recursionDrop.Id}）`,
+    treeData: convertToTreeData([root])
+  }));
+});
+
+//默认的树形结构属性
+const defaultProps = {
+  children: "children",
+  label: "label"
 };
 
 defineOptions({
@@ -422,6 +577,51 @@ const router = useRouter();
           </el-table>
         </el-collapse-item>
       </el-collapse>
+    </div>
+
+    <div class="offspring-pack-check-container">
+      <div class="tags-container">
+        <el-Tag
+          v-for="item in correctItemTags"
+          :key="item.Id"
+          :disable-transitions="false"
+          closable
+          size="large"
+          style="margin: 20px 8px 0 0"
+          @close="handleTagClose(item)"
+          >Id:{{ item.Id }},Desc:{{ item.Desc }}</el-Tag
+        >
+      </div>
+      <el-button
+        style="width: 40%; margin: 30px 0"
+        type="primary"
+        @click="offspringCheckClick"
+        >对所有Tag进行递归包检查</el-button
+      >
+      <div class="offspring-pack-log">
+        <el-card v-loading="springCheckLoading">
+          <div v-for="(group, index) in treeGroups" :key="index" class="mb-4">
+            <el-card shadow="hover">
+              <template #header>
+                <span>{{ group.title }}</span>
+              </template>
+              <el-tree
+                :data="group.treeData"
+                :highlight-current="true"
+                :props="defaultProps"
+                default-expand-all
+                node-key="label"
+              >
+                <template #default="{ node, data }">
+                  <span :style="{ color: data.hasErr ? 'red' : 'inherit' }">
+                    {{ node.label }}
+                  </span>
+                </template>
+              </el-tree>
+            </el-card>
+          </div>
+        </el-card>
+      </div>
     </div>
   </div>
 </template>

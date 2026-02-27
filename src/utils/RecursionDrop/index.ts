@@ -1,16 +1,16 @@
 import {
-  type DropChild,
-  type DropRecord,
-  type NotifyRecord,
-  type DropTreeNode,
-  type DropInnerNode,
-  DuplicateIdError,
-  NotFindIdError,
-  FatherCommonCellErr,
-  NotFindNotifyErr,
-  mapToNotifyRecord,
   type CommonItemRecord,
-  mapToCommonItemRecord
+  type DropChild,
+  type DropInnerNode,
+  type DropRecord,
+  type DropTreeNode,
+  DuplicateIdError,
+  FatherCommonCellErr,
+  mapToCommonItemRecord,
+  mapToNotifyRecord,
+  NotFindIdError,
+  NotFindNotifyErr,
+  type NotifyRecord
 } from "./types";
 // 多层目录选择返回Handler
 export const getNestedDirectoryHandle = async (
@@ -88,7 +88,7 @@ export async function findDropRecordById(
 }
 
 /**
- * 二分查找 确定id唯一但是不确定找不找得到
+ * 确定id唯一但是不确定找不找得到
  * @param file 文件
  * @param targetId 查找id
  * @param fieldMapper 列映射函数
@@ -99,7 +99,10 @@ export async function findByIdFromFile<T>(
   targetId: string,
   fieldMapper: (cols: string[]) => T
 ): Promise<T | null> {
+  console.log(file.name);
+  readLast10Lines(file);
   const text = await readFileWithEncoding(file, "gb18030");
+
   const lines = text.split(/\r?\n/);
   const dataLines = lines.slice(4).filter(line => line.trim());
 
@@ -129,6 +132,39 @@ export async function findNotifyInfoById(
   return findByIdFromFile<NotifyRecord>(file, targetId, mapToNotifyRecord);
 }
 
+// 假设 file 是 File 对象
+async function readLast10Lines(file) {
+  const reader = new FileReader();
+
+  reader.onload = function (e) {
+    const text = e.target.result; // 文件内容（应该是字符串）
+
+    if (typeof text !== "string") {
+      console.error("读取的内容不是字符串");
+      return;
+    }
+
+    // 使用正则表达式分割行，兼容 '\r\n' 和 '\n'
+    const lines = text.split(/\r?\n/); // 这样可以兼容 '\r\n' 和 '\n'
+
+    // 提取最后 10 行
+    const last10Lines = lines.slice(-10);
+
+    // 输出到控制台
+    console.log("最后 10 行内容:");
+    last10Lines.forEach(line => {
+      console.log(line);
+    });
+  };
+
+  reader.onerror = function (error) {
+    console.error("读取文件出错:", error);
+  };
+
+  // 读取文件内容为文本（确保是字符串）
+  reader.readAsText(file, "UTF-8");
+}
+
 /**
  * 从 CommonItem.txt 文件中使用二分查找找到指定 Id 的记录，并返回对象格式。
  * @param file  CommonItem.txt 文件
@@ -139,6 +175,7 @@ export async function findCommonItemById(
   file: File,
   targetId: string
 ): Promise<CommonItemRecord | null> {
+  // 输出file的内容
   return findByIdFromFile<CommonItemRecord>(
     file,
     targetId,
