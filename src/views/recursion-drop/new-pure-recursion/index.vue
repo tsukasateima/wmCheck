@@ -268,7 +268,7 @@ const offspringCheckClick = async () => {
 
   for (const tableG of allTables) {
     for (const tableItem of tableG.value) {
-      if
+      if (
         tableItem.tableName === "RecursionDrop.txt" &&
         recursionDropTxt === null
       ) {
