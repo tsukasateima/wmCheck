@@ -3,9 +3,15 @@ import { useRouter } from "vue-router";
 import { computed, onMounted, reactive, Ref, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { getNestedDirectoryHandle } from "@/utils/common/index";
-import { pickAndPersistDirectory, restoreDirectoryHandle } from "@/utils/RecursionDrop/storage";
+import {
+  pickAndPersistDirectory,
+  restoreDirectoryHandle
+} from "@/utils/RecursionDrop/storage";
 import { baseTables, resetTables } from "./txtPath";
-import { checkCommonCellById, offspringCheck } from "@/utils/RecursionDrop/new-recursion-drop";
+import {
+  checkCommonCellById,
+  offspringCheck
+} from "@/utils/RecursionDrop/new-recursion-drop";
 import {
   DropRecord,
   DropTreeNode,
@@ -148,7 +154,7 @@ const quickCheckClick = async () => {
   await offspringCheckClick();
 };
 //基础检查相关变量
-const recursionDropIdsString = ref<string>("200");
+const recursionDropIdsString = ref<string>("");
 const recursionDropIdsStringArray: Ref<string[]> = ref([]);
 const commonCheckCollapseNames = ref<string[]>([]);
 const checkCommonCellByIdLoading = ref(false);
