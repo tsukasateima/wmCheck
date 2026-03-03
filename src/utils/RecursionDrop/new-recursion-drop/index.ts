@@ -11,7 +11,7 @@ import {
   NotFindNotifyErr
 } from "@/utils/RecursionDrop/types";
 import { findNotifyInfoById } from "@/utils/RecursionDrop";
-import { readFileWithEncoding } from "@/utils/common/index";
+import { readFileWithEncoding } from "@/utils/common";
 
 /**
  * 查找所有的孩子函数 不管孩子是否为空
@@ -52,7 +52,6 @@ export async function findByIdFromFile<T>(
   console.log(file.name);
   // readLast10Lines(file);
   const text = await readFileWithEncoding(file, "utf-8");
-
   const lines = text.split(/\r?\n/);
   const dataLines = lines.slice(4).filter(line => line.trim());
 
@@ -125,7 +124,7 @@ export async function buildDropTreeRootNode(
 
   let hasRootProbErr = false; // 【新增】
   const rootMsg: string | undefined = undefined; // 【新增】
-  const dropType = Number(dropRecord.Type); // 【新增】获取根或包的类型
+  const dropType = Number(dropRecord.DropType); // 【新增】获取根或包的类型
 
   for (const child of children) {
     const itemIdStr = String(child.ItemID);

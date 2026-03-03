@@ -1,21 +1,19 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import { useRouter } from "vue-router";
-import { ref, Ref, onMounted, onBeforeUnmount, nextTick, computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, Ref, ref } from "vue";
 import { ElMessage } from "element-plus";
 import {
-  getNestedDirectoryHandle,
   checkCommonCellById,
-  findDropRecordById,
-  buildDropTreeRootNode,
+  getNestedDirectoryHandle,
   offspringCheck
 } from "@/utils/RecursionDrop";
 import {
-  NotFindIdError,
+  DropRecord,
+  DropTreeNode,
   DuplicateIdError,
   FatherCommonCellErr,
-  NotFindNotifyErr,
-  DropRecord,
-  DropTreeNode
+  NotFindIdError,
+  NotFindNotifyErr
 } from "@/utils/RecursionDrop/types";
 import { persistHandle, restoreHandle } from "@/utils/RecursionDrop/storage";
 
@@ -568,16 +566,16 @@ const router = useRouter();
         <div class="version-radio-container info-container">
           <div class="title">版本选择</div>
           <el-radio-group v-model="versionRadio">
-            <el-radio value="Main" size="large">Main</el-radio>
-            <el-radio value="TY" size="large">TY</el-radio>
+            <el-radio size="large" value="Main">Main</el-radio>
+            <el-radio size="large" value="TY">TY</el-radio>
           </el-radio-group>
         </div>
         <!-- 服务器选择 -->
         <div class="server-radio-container info-container">
           <div class="title">服务器选择</div>
           <el-radio-group v-model="serverRadio">
-            <el-radio value="Base" size="large">基础版</el-radio>
-            <el-radio value="Reset" size="large">重置版</el-radio>
+            <el-radio size="large" value="Base">基础版</el-radio>
+            <el-radio size="large" value="Reset">重置版</el-radio>
           </el-radio-group>
         </div>
         <!-- Main路径选择 -->
@@ -631,15 +629,15 @@ const router = useRouter();
           <p>请输入随机掉落物品id，每行一个id</p>
           <el-input
             v-model="recursionDropIdsString"
-            style="width: 240px"
             :autosize="{ minRows: 2, maxRows: 4 }"
-            type="textarea"
             placeholder="Please input"
+            style="width: 240px"
+            type="textarea"
           />
         </div>
       </div>
       <div class="right-info-container">
-        <el-card shadow="hover" class="card-item">
+        <el-card class="card-item" shadow="hover">
           <span>批量基础检查只检查该包本包的基础配置，包括以下检查项目</span>
           <ul>
             <li>1. 输入物品Id的存在性；</li>
@@ -653,7 +651,7 @@ const router = useRouter();
             <li>条目4，5，6合并为一个错误在“单元格存在错误”表中</li>
           </ul>
         </el-card>
-        <el-card shadow="hover" class="card-item">
+        <el-card class="card-item" shadow="hover">
           <span>全量检查检查该包及其递归子包的配置，包括以下检查项目</span>
           <ul>
             <li>
@@ -678,15 +676,15 @@ const router = useRouter();
       <div class="father-common-check-container">
         <div class="quick-check-container">
           <el-button
-            type="warning"
             style="width: 40%; margin-bottom: 30px"
+            type="warning"
             @click="quickCheckClick"
             >一键检查</el-button
           >
         </div>
         <el-button
-          style="width: 40%"
           :loading="checkCommonCellByIdLoading"
+          style="width: 40%"
           type="primary"
           @click="checkCommonCellByIdClick"
           >批量基础检查</el-button
@@ -704,11 +702,11 @@ const router = useRouter();
                 :data="correctItems"
                 border
               >
-                <el-table-column prop="Id" label="Id" />
-                <el-table-column prop="Desc" label="描述" />
+                <el-table-column label="Id" prop="Id" />
+                <el-table-column label="描述" prop="Desc" />
                 <el-table-column
-                  prop="Type"
                   label="种类 1：常规概率 2:权重包"
+                  prop="Type"
                 />
               </el-table>
             </el-collapse-item>
@@ -723,7 +721,7 @@ const router = useRouter();
                 :data="notFindIdsItems"
                 border
               >
-                <el-table-column prop="Id" label="Id" />
+                <el-table-column label="Id" prop="Id" />
               </el-table>
             </el-collapse-item>
             <el-collapse-item name="duplicateErr">
@@ -737,11 +735,11 @@ const router = useRouter();
                 :data="duplicateItems"
                 border
               >
-                <el-table-column prop="Id" label="Id" />
-                <el-table-column prop="Desc" label="描述" />
+                <el-table-column label="Id" prop="Id" />
+                <el-table-column label="描述" prop="Desc" />
                 <el-table-column
-                  prop="Type"
                   label="种类 1：常规概率 2:权重包"
+                  prop="Type"
                 />
               </el-table>
             </el-collapse-item>
@@ -757,9 +755,9 @@ const router = useRouter();
                 :data="notFindNotifyItems"
                 border
               >
-                <el-table-column prop="Id" label="Id" />
-                <el-table-column prop="Desc" label="描述" />
-                <el-table-column prop="NotifyId" label="公告ID" />
+                <el-table-column label="Id" prop="Id" />
+                <el-table-column label="描述" prop="Desc" />
+                <el-table-column label="公告ID" prop="NotifyId" />
               </el-table>
             </el-collapse-item>
             <el-collapse-item name="commonCellErr">
@@ -773,17 +771,17 @@ const router = useRouter();
                 :data="fatherCommonCellErrItems"
                 border
               >
-                <el-table-column prop="Id" label="Id" />
-                <el-table-column prop="Desc" label="描述" />
+                <el-table-column label="Id" prop="Id" />
+                <el-table-column label="描述" prop="Desc" />
                 <el-table-column
-                  prop="Type"
                   label="种类 1：常规概率 2:权重包"
+                  prop="Type"
                 />
                 <el-table-column
-                  prop="BindRate"
                   label="物品绑定概率(0:非绑定，1:绑定，0-1之间为概率绑定)"
+                  prop="BindRate"
                 />
-                <el-table-column prop="ErrCells" label="错误单元格" />
+                <el-table-column label="错误单元格" prop="ErrCells" />
               </el-table>
             </el-collapse-item>
           </el-collapse>
@@ -795,17 +793,17 @@ const router = useRouter();
           <el-Tag
             v-for="item in correctItemTags"
             :key="item.Id"
-            style="margin: 20px 8px 0 0"
-            size="large"
-            closable
             :disable-transitions="false"
+            closable
+            size="large"
+            style="margin: 20px 8px 0 0"
             @close="handleTagClose(item)"
             >Id:{{ item.Id }},Desc:{{ item.Desc }}</el-Tag
           >
         </div>
         <el-button
-          type="primary"
           style="width: 40%; margin: 30px 0"
+          type="primary"
           @click="offspringCheckClick"
           >对所有Tag进行递归包检查</el-button
         >
@@ -818,10 +816,10 @@ const router = useRouter();
                 </template>
                 <el-tree
                   :data="group.treeData"
-                  :props="defaultProps"
-                  node-key="label"
                   :highlight-current="true"
+                  :props="defaultProps"
                   default-expand-all
+                  node-key="label"
                 >
                   <template #default="{ node, data }">
                     <span :style="{ color: data.hasErr ? 'red' : 'inherit' }">

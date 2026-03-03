@@ -154,7 +154,7 @@ const quickCheckClick = async () => {
   await offspringCheckClick();
 };
 //基础检查相关变量
-const recursionDropIdsString = ref<string>("");
+const recursionDropIdsString = ref<string>("5449");
 const recursionDropIdsStringArray: Ref<string[]> = ref([]);
 const commonCheckCollapseNames = ref<string[]>([]);
 const checkCommonCellByIdLoading = ref(false);
@@ -264,45 +264,46 @@ const handleTagClose = (item: DropRecord) => {
 const offspringCheckClick = async () => {
   let recursionDropTxt = null;
   let commonItemTxt = null;
-
-  // 用于收集所有 CommonItem.txt 的内容
-  // 用于收集所有 CommonItem.txt 的内容
   let commonItemContents = [];
 
   for (const tableG of allTables) {
     for (const tableItem of tableG.value) {
-      if (tableItem.tableName === "RecursionDrop.txt") {
+      if
+        tableItem.tableName === "RecursionDrop.txt" &&
+        recursionDropTxt === null
+      ) {
         recursionDropTxt = tableItem.content;
-      } else if (tableItem.tableName === "CommonItem.txt") {
-        if (tableItem.content instanceof File) {
-          // 读取 File 内容并解码成gbk 编码
-          const arrayBuffer = await tableItem.content.arrayBuffer();
-
-          // 使用 TextDecoder 来将 GBK 编码转换为 UTF-8 编码
-          const decoder = new TextDecoder("gb18030"); // 或使用其他适当的编码如 "gb2312"
-          const text = decoder.decode(arrayBuffer);
-          commonItemContents.push(text);
-        }
+      }
+      if (tableItem.content instanceof File) {
+        // 读取 File 内容并解码成gbk 编码
+        const arrayBuffer = await tableItem.content.arrayBuffer();
+        // 使用 TextDecoder 来将 GBK 编码转换为 UTF-8 编码
+        const decoder = new TextDecoder("gb18030"); // 或使用s其他适当的编码如 "gb2312"
+        const text = decoder.decode(arrayBuffer);
+        commonItemContents.push(text);
       }
     }
   }
 
   // 拼接所有 CommonItem.txt 的内容
-  if (commonItemContents.length > 0) {
+  if (commonItemContents.length >= 0) {
     // 拼接内容，用换行符分隔（可以根据需要调整分隔符）
     const mergedContent = commonItemContents.join("\n");
 
-    // 创建新的 File 对象  需要是gbk编码
     const mergedFile = new File([mergedContent], "CommonItem.txt", {
       type: "text/plain;"
     });
     commonItemTxt = mergedFile;
   }
+
+  console.log("!!!找到txt", recursionDropTxt, commonItemTxt);
+
   offspringPackLogList.value = [];
   for (const item of correctItemTags.value) {
     const root = await offspringCheck(item, recursionDropTxt, commonItemTxt);
     offspringPackLogList.value.push(root);
   }
+
   springCheckLoading.value = false;
 };
 
