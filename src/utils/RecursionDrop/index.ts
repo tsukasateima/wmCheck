@@ -120,6 +120,10 @@ export async function findByIdFromFile<T>(
 }
 
 /**
+ * 测试新增
+ */
+
+/**
  * 从 dropNotify.txt 文件中使用二分查找找到指定 Id 的记录，并返回对象格式。
  * @param file dropNotify.txt 文件
  * @param targetId 查找的info的Id
