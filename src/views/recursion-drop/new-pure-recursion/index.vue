@@ -33,13 +33,21 @@ const allTables = reactive([baseTablesPath, resetTablesPath]);
 
 onMounted(async () => {
   // 恢复句柄（页面刷新后）
-  await restoreDirectoryHandle(mainDirectoryHandle, "mainDirectoryHandle", {
-    warnMessage: "Main 句柄恢复失败或无权限"
-  });
+  await restoreDirectoryHandle(
+    mainDirectoryHandle,
+    "mainRecursionDirectoryHandle",
+    {
+      warnMessage: "Main 句柄恢复失败或无权限"
+    }
+  );
 
-  await restoreDirectoryHandle(tyDirectoryHandle, "tyDirectoryHandle", {
-    warnMessage: "Ty 句柄恢复失败或无权限"
-  });
+  await restoreDirectoryHandle(
+    tyDirectoryHandle,
+    "tyRecursionDirectoryHandle",
+    {
+      warnMessage: "Ty 句柄恢复失败或无权限"
+    }
+  );
 
   await findAllTxtFiles();
 });
