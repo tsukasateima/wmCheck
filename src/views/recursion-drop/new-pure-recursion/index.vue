@@ -337,7 +337,7 @@ function convertToTreeData(nodes: DropTreeNode[]): any[] {
     }
 
     if (node.type === "leaf") {
-      label += `${node.commonItem.Id} --- ${node.commonItem.Name} --- 概率${node.dropChild.ItemDropRate}`;
+      label += `${node.commonItem.Id} --- ${node.commonItem.Name} --- 概率${node.dropChild.ItemDropRate} --- 数量 ${node.dropChild.Count}`;
       if (node.dropChild.ItemDropRate == 0) {
         label += " --- 是珍贵掉落";
       } else {
